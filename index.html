@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Уншлагын танхим</title>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a reading desk. The passage sits on a paper sheet in a book face;
+   controls below it, class results in a ledger column on the right. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --paper:#fbfaf6; --ink:#1c2733; --muted:#5d6b7a; --line:#d6dce3;
+  --accent:#0f6e8c; --accent-ink:#ffffff; --accent-soft:#dff0f5;
+  --good:#17703f; --good-soft:#dcf3e4; --warn:#8a5a00; --warn-soft:#fbedcc; --bad:#a3262b; --bad-soft:#fbe1e1;
+  --font-ui:"Noto Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --font-read:"Literata",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11171d; --surface:#1a222b; --paper:#202a34; --ink:#e7edf2; --muted:#9aa8b6; --line:#33404d;
+    --accent:#54b8d6; --accent-ink:#06222b; --accent-soft:#173844;
+    --good:#6fd59a; --good-soft:#173826; --warn:#f0c264; --warn-soft:#3d3115; --bad:#ff9a9a; --bad-soft:#452024;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11171d; --surface:#1a222b; --paper:#202a34; --ink:#e7edf2; --muted:#9aa8b6; --line:#33404d;
+  --accent:#54b8d6; --accent-ink:#06222b; --accent-soft:#173844;
+  --good:#6fd59a; --good-soft:#173826; --warn:#f0c264; --warn-soft:#3d3115; --bad:#ff9a9a; --bad-soft:#452024;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.5}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;padding-bottom:14px}
+h1{font-size:19px;margin:0;line-height:1.25;text-wrap:balance}
+.sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+.pick{display:flex;flex-direction:column;gap:6px;flex:1 1 240px;min-width:0}
+.pick label,.steplabel{font-weight:700;font-size:14px}
+select{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 12px;height:48px;width:100%;font-size:16px}
+#startCard{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:14px 18px;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+#startCard .go{display:flex;flex-direction:column;gap:6px;flex:2 1 320px;min-width:0}
+#startCard .btn{min-height:48px;flex:1 1 120px}
+body.is-rec #startCard .pick,body.is-rec #btnStart,body.is-rec #btnRetry,body.is-rec .steplabel{display:none}
+body.is-rec #startCard .row{justify-content:flex-end}
+@media (max-width:600px){
+  header .wrap{padding-top:10px;padding-bottom:10px}
+  h1{font-size:17px}
+  main.wrap{gap:12px;padding-top:12px}
+  .col{gap:12px}
+  .card{padding:12px}
+  #startCard{border-radius:0 0 12px 12px;margin:0 -16px;border-left:0;border-right:0;padding:12px 16px}
+  #passage{font-size:20px;line-height:1.95;padding:14px 12px}
+  .w{padding:3px 2px}
+  .tile strong{font-size:22px}
+  #roster button{padding:11px 6px}
+  .btn.small{flex:1 1 100%;min-height:44px}
+  .row .btn.small{flex:0 0 auto}
+}
+main.wrap{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:18px;padding-top:18px;padding-bottom:28px;align-items:start}
+@media (max-width:860px){main.wrap{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card h2{font-size:14px;margin:0;font-weight:700}
+.row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+.passage-title{font-family:var(--font-read);font-size:20px;font-weight:600;margin:0}
+#passage{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 16px;font-family:var(--font-read);font-size:21px;line-height:2.05}
+.w{border-radius:5px;padding:2px 3px;cursor:pointer;border-bottom:2px solid transparent;scroll-margin:140px 0 80px}
+.w:hover{background:var(--accent-soft)}
+.w.ok{background:var(--good-soft);color:var(--good)}
+.w.skip{background:var(--bad-soft);color:var(--bad);text-decoration:line-through}
+.w.miss{color:var(--bad);border-bottom:2px dotted var(--bad)}
+.w.cur{border-bottom-color:var(--accent);background:var(--accent-soft)}
+.hint{color:var(--muted);font-size:12.5px;margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted)}
+.legend b{font-weight:600;padding:0 5px;border-radius:4px}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.btn{flex:1 1 150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:11px 14px;font-weight:600;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.stop{background:var(--bad);color:var(--surface);border-color:var(--bad)}
+.btn.small{flex:0 0 auto;padding:7px 12px;font-size:13px;border-radius:8px}
+.btn.danger{color:var(--bad)}
+.btn svg{width:16px;height:16px;fill:currentColor;flex:none}
+.status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 11px;background:var(--bg);color:var(--muted)}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.status.rec{background:var(--bad-soft);color:var(--bad)}
+.status.done{background:var(--good-soft);color:var(--good)}
+.status.sel{background:var(--accent-soft);color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.status.rec::before{animation:blink 1.1s infinite}}
+@keyframes blink{50%{opacity:.25}}
+#live{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:52px;max-height:110px;overflow-y:auto;font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+#live .part{font-style:italic;opacity:.75}
+audio{width:100%}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.tile span{font-size:12px;color:var(--muted);font-weight:600}
+.tile strong{font-size:26px;line-height:1.15;font-variant-numeric:tabular-nums}
+.tile small{font-size:11.5px;color:var(--muted)}
+.tile.good strong{color:var(--good)} .tile.bad strong{color:var(--bad)}
+.bar{height:8px;background:var(--bg);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+#prev{font-size:13px;color:var(--muted);margin:0}
+ul#roster{list-style:none;margin:0;padding:0;max-height:360px;overflow-y:auto;border-top:1px solid var(--line)}
+#roster li{border-bottom:1px solid var(--line)}
+#roster button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:none;border:0;padding:8px 6px;cursor:pointer;text-align:left}
+#roster button:hover{background:var(--bg)}
+#roster li.on button{background:var(--accent-soft)}
+#roster .nm{font-weight:500}
+.pill{font-size:11.5px;font-weight:600;border-radius:6px;padding:2px 8px;white-space:nowrap;background:var(--bg);color:var(--muted);font-variant-numeric:tabular-nums}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.count{font-size:12px;color:var(--muted);font-weight:400}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;max-width:min(92vw,520px);box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:20}
+[hidden]{display:none!important}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:0 16px 22px}
+/* ----- additions: class picker, teacher area ----- */
+header .btn.small{min-height:40px}
+#startCard .picks{display:flex;flex-wrap:wrap;gap:12px;flex:2 1 360px;min-width:0}
+#startCard .pick{flex:1 1 160px}
+body.is-rec #startCard .picks{display:none}
+.banner{background:var(--warn-soft);color:var(--warn);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;grid-column:1/-1}
+.banner .btn{margin-top:8px}
+#teacherView{display:flex;flex-direction:column;gap:18px;padding-top:18px;padding-bottom:28px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:600;cursor:pointer;min-height:40px}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+.tbar .pick{flex:0 1 260px}
+.tiles.three{grid-template-columns:repeat(3,1fr)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);background:var(--bg);font-weight:700}
+tbody tr{cursor:pointer}
+tbody tr:hover,tbody tr.on{background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right}
+#detail{border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;display:flex;flex-direction:column;gap:8px}
+#detail h3{margin:0;font-size:14px}
+#detail .att{border-top:1px solid var(--line);padding-top:8px}
+#detail .att span{color:var(--muted)}
+.form{display:flex;flex-direction:column;gap:14px;max-width:760px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:700;font-size:14px}
+.field small{color:var(--muted);font-size:12.5px}
+input[type=text],input[type=password],textarea{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;width:100%}
+textarea{min-height:170px;resize:vertical;line-height:1.5}
+#fText{font-family:var(--font-read);font-size:17px}
+#modal{position:fixed;inset:0;background:rgba(10,16,22,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+#modal .card{width:min(100%,380px)}
+#sendNote{font-size:13px;margin:0}
+#sendNote.ok{color:var(--good)} #sendNote.bad{color:var(--bad)}
+@media (max-width:600px){.tiles.three{grid-template-columns:1fr 1fr}.tbar .pick{flex:1 1 100%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div>
+      <h1 id="siteTitle">Уншлагын танхим</h1>
+      <p class="sub">Англи хэлний уншлага, дуудлагын үнэлгээ</p>
+    </div>
+    <button id="btnTeacher" class="btn small" type="button">Багш нэвтрэх</button>
+  </div>
+</header>
+
+<!-- ================= Сурагчийн хэсэг ================= -->
+<main class="wrap" id="studentView">
+  <div class="banner" id="banner" hidden></div>
+  <section class="card" id="startCard">
+    <div class="picks">
+      <div class="pick">
+        <label for="classSelect">1. Ангиа сонго</label>
+        <select id="classSelect"><option value="">Ачаалж байна</option></select>
+      </div>
+      <div class="pick">
+        <label for="studentSelect">2. Нэрээ сонго</label>
+        <select id="studentSelect"><option value="">Нэрээ сонгоно уу</option></select>
+      </div>
+    </div>
+    <div class="go">
+      <div class="row">
+        <span class="steplabel">3. Уншиж эхэл</span>
+        <span id="status" class="status">Бэлтгэж байна</span>
+      </div>
+      <div class="btns">
+        <button id="btnStart" class="btn primary" type="button" disabled>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 8 1zM3.5 7.5a4.5 4.5 0 0 0 3.8 4.4V14h1.4v-2.1a4.5 4.5 0 0 0 3.8-4.4h-1.3a3.2 3.2 0 0 1-6.4 0z"/></svg>
+          Уншиж эхлэх
+        </button>
+        <button id="btnStop" class="btn stop" type="button" disabled>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>
+          Дуусгах
+        </button>
+        <button id="btnRetry" class="btn" type="button" disabled>Дахин унших</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="col">
+    <section class="card">
+      <div class="row">
+        <h2 class="passage-title" id="pTitle" lang="en"></h2>
+        <button id="btnListen" class="btn small" type="button">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10L5 10H2zM11 5.2a4 4 0 0 1 0 5.6l-.9-.9a2.7 2.7 0 0 0 0-3.8z"/></svg>
+          Эхийг бүтнээр сонсох
+        </button>
+      </div>
+      <div id="passage" lang="en"></div>
+      <div class="legend">
+        <span><b class="w ok">зөв</b> зөв уншсан</span>
+        <span><b class="w skip">алгассан</b> алгассан эсвэл буруу</span>
+        <span><b class="w miss">уншаагүй</b> хүрч уншаагүй</span>
+      </div>
+      <p class="hint">Үг дээр дарж зөв дуудлагыг сонсоно. Унших үед үг сонсох боломжгүй.</p>
+    </section>
+    <section class="card">
+      <h2>Таньсан яриа</h2>
+      <div id="playback" hidden>
+        <p class="hint" style="margin-bottom:6px">Өөрийн уншсан бичлэг (хадгалагдахгүй, зөвхөн одоо сонсоно)</p>
+        <audio id="player" controls></audio>
+      </div>
+      <div id="live" lang="en">Анги, нэрээ сонгоод «Уншиж эхлэх» товчийг дарна уу.</div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <h2>Энэ уншлагын дүн</h2>
+      <div class="tiles">
+        <div class="tile"><span>Нарийвчлал</span><strong id="sAcc">0%</strong><small>зөв уншсан хувь</small></div>
+        <div class="tile"><span>Хурд</span><strong id="sWpm">0</strong><small>үг / минут</small></div>
+        <div class="tile good"><span>Зөв үг</span><strong id="sOk">0</strong><small id="sTotal">нийт үгээс</small></div>
+        <div class="tile bad"><span>Алдсан үг</span><strong id="sBad">0</strong><small>алгассан, уншаагүй</small></div>
+      </div>
+      <div>
+        <div class="meta"><span>Явц <span id="sProg">0%</span></span><span>Хугацаа <span id="sTime">0:00</span></span></div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+      <p id="sendNote" hidden></p>
+      <button id="btnResend" class="btn small" type="button" hidden>Дүнг дахин илгээх</button>
+    </section>
+  </div>
+</main>
+
+<!-- ================= Багшийн хэсэг ================= -->
+<main class="wrap" id="teacherView" hidden>
+  <section class="card">
+    <div class="tbar">
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tabResults" role="tab" aria-selected="true" type="button">Сурагчдын оноо</button>
+        <button class="tab" id="tabEdit" role="tab" aria-selected="false" type="button">Анги, эх засах</button>
+      </div>
+      <div class="pick">
+        <label for="tClass">Анги</label>
+        <select id="tClass"></select>
+      </div>
+    </div>
+
+    <div id="panelResults" class="col">
+      <div class="tiles three">
+        <div class="tile"><span>Уншсан сурагч</span><strong id="tRead">0</strong><small id="tReadOf"></small></div>
+        <div class="tile"><span>Дундаж нарийвчлал</span><strong id="tAcc">0%</strong><small>сүүлийн уншлагаар</small></div>
+        <div class="tile"><span>Дундаж хурд</span><strong id="tWpm">0</strong><small>үг / минут</small></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>№</th><th>Сурагч</th><th class="num">Уншсан тоо</th><th class="num">Сүүлийн нарийвчлал</th><th class="num">Сүүлийн хурд</th><th class="num">Хамгийн сайн</th><th>Сүүлд уншсан</th></tr></thead>
+          <tbody id="tBody"></tbody>
+        </table>
+      </div>
+      <p class="hint" id="tNote">Сурагчийн мөр дээр дарж уншлага бүрийг дэлгэрэнгүй харна.</p>
+      <div id="detail" hidden></div>
+      <div class="btns">
+        <button id="btnRefresh" class="btn small" type="button">Оноог шинэчлэх</button>
+        <button id="btnCsv" class="btn small" type="button">Ангийн оноог татах (CSV)</button>
+      </div>
+    </div>
+
+    <div id="panelEdit" class="form" hidden>
+      <div class="field">
+        <label for="fName">Ангийн нэр</label>
+        <input type="text" id="fName" maxlength="40" placeholder="Жишээ нь: 7В">
+      </div>
+      <div class="field">
+        <label for="fTitle">Эхийн гарчиг</label>
+        <input type="text" id="fTitle" maxlength="120" lang="en" placeholder="Жишээ нь: Dylan, Glasgow">
+      </div>
+      <div class="field">
+        <label for="fText">Унших эх (англиар)</label>
+        <textarea id="fText" lang="en" maxlength="6000"></textarea>
+        <small id="fCount"></small>
+      </div>
+      <div class="field">
+        <label for="fStudents">Сурагчдын нэрс</label>
+        <textarea id="fStudents"></textarea>
+        <small>Нэг мөрөнд нэг сурагч. Нэрийг өөрчилбөл тэр сурагчийн өмнөх оноо хуучин нэр дээрээ үлдэнэ.</small>
+      </div>
+      <div class="btns">
+        <button id="btnSave" class="btn primary small" type="button">Хадгалах</button>
+        <button id="btnNew" class="btn small" type="button">Шинэ анги нэмэх</button>
+        <button id="btnDelete" class="btn small danger" type="button">Энэ ангийг устгах</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" hidden>
+  <form class="card" id="loginForm">
+    <h2>Багшийн нэвтрэлт</h2>
+    <div class="field">
+      <label for="pw">Нууц үг</label>
+      <input type="password" id="pw" autocomplete="current-password">
+    </div>
+    <p class="hint" id="loginMsg"></p>
+    <div class="btns">
+      <button class="btn primary small" type="submit" id="btnLogin">Нэвтрэх</button>
+      <button class="btn small" type="button" id="btnCancel">Болих</button>
+    </div>
+  </form>
+</div>
+
+<footer>Англи хэлний уншлагын үнэлгээ.</footer>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/* ============================================================
+   ДАТАБЭЙСИЙН ХАЯГ. Google Apps Script-ийн Web app URL-ийг
+   хашилтын дотор тавина (…/exec гэж төгсдөг).
+   ============================================================ */
+const API_URL = "";
+
+/* ---------- Pure scoring logic ---------- */
+/*PURE-START*/
+const NUM = {zero:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",ten:"10",eleven:"11",twelve:"12",thirteen:"13",fourteen:"14",fifteen:"15",sixteen:"16",seventeen:"17",eighteen:"18",nineteen:"19",twenty:"20",thirty:"30",forty:"40",fifty:"50",sixty:"60",seventy:"70",eighty:"80",ninety:"90"};
+function norm(w){
+  return w.toLowerCase().replace(/[‘’`]/g,"'").replace(/[^a-z0-9']/g,"").replace(/^'+|'+$/g,"");
+}
+// One written word becomes one or two spoken units, so "they're" and "they are" score the same.
+function toks(raw){
+  const w = norm(raw); if (!w) return [];
+  if (NUM[w]) return [NUM[w]];
+  if (w === "cannot" || w === "can't") return ["can","not"];
+  if (w === "won't") return ["will","not"];
+  if (w === "shan't") return ["shall","not"];
+  let m;
+  if ((m = w.match(/^(.+)n't$/))) return [m[1],"not"];
+  if ((m = w.match(/^(.+)'re$/))) return [m[1],"are"];
+  if ((m = w.match(/^(.+)'ve$/))) return [m[1],"have"];
+  if ((m = w.match(/^(.+)'ll$/))) return [m[1],"will"];
+  if ((m = w.match(/^(.+)'m$/))) return [m[1],"am"];
+  if ((m = w.match(/^(.+)'d$/))) return [m[1],"would"];
+  return [w.replace(/'/g,"")];
+}
+function tokenizeSpoken(text){
+  const out = [];
+  text.replace(/(\d+):00\b/g,"$1").split(/\s+/).forEach(w => toks(w).forEach(t => out.push(t)));
+  return out;
+}
+function buildTargets(text){
+  const words = text.trim().split(/\s+/).filter(Boolean), flat = [], range = [];
+  words.forEach((word, i) => {
+    const ts = toks(word), a = flat.length;
+    const bare = word.replace(/^[^A-Za-z]+/,"");
+    const startsSentence = i === 0 || /[.!?]["'”’)]*$/.test(words[i-1]);
+    const isName = ts.length === 1 && /^[A-Z][a-z]/.test(bare) && !startsSentence;
+    ts.forEach(t => flat.push({ t, w: i, name: isName }));
+    range.push([a, flat.length]);
+  });
+  return { words, flat, range, total: range.filter(r => r[1] > r[0]).length };
+}
+function lev(a, b){
+  const d = []; for (let i = 0; i <= a.length; i++) d.push([i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+// Names are matched loosely: a recognizer rarely spells an unusual name the way the text does.
+function hit(s, f){ return s === f.t || (f.name && f.t.length >= 5 && s[0] === f.t[0] && lev(s, f.t) <= 2); }
+// Walks the spoken units along the passage. A unit may match the expected one or one of the
+// next two; units jumped over count as skipped.
+function align(T, spoken, finished){
+  const F = T.flat, fs = F.map(() => 0);   // 0 pending, 1 ok, 2 skipped
+  let idx = 0;
+  for (let i = 0; i < spoken.length && idx < F.length; i++){
+    for (let j = idx; j < Math.min(idx + 3, F.length); j++){
+      let used = 0, span = 0;
+      if (hit(spoken[i], F[j])){ used = 1; span = 1; }
+      else if (i + 1 < spoken.length && spoken[i] + spoken[i+1] === F[j].t){ used = 2; span = 1; }
+      else if (j + 1 < F.length && spoken[i] === F[j].t + F[j+1].t){ used = 1; span = 2; }
+      if (!used) continue;
+      for (let k = idx; k < j; k++) fs[k] = 2;
+      for (let k = j; k < j + span; k++) fs[k] = 1;
+      idx = j + span; i += used - 1; break;
+    }
+  }
+  let ok = 0, bad = 0;
+  const st = T.range.map(([a, b]) => {
+    if (b === a) return "none";
+    let s;
+    if (b <= idx) s = fs.slice(a, b).every(x => x === 1) ? "ok" : "skip";
+    else if (a < idx) s = finished ? "skip" : "pending";
+    else s = finished ? "miss" : "pending";
+    if (s === "ok") ok++; else if (s !== "pending") bad++;
+    return s;
+  });
+  return { st, ok, bad, cur: idx < F.length ? F[idx].w : -1, done: idx >= F.length };
+}
+/*PURE-END*/
+
+/* ---------- State ---------- */
+const DEMO = [{ id: "demo", name: "Жишээ анги", title: "Dylan, Glasgow",
+  text: "I always get up late on Saturdays. I usually have breakfast at lunchtime! But this week my parents are doing some work on the house. They’re changing the windows and they’re putting in a new kitchen. The noise is terrible. So today I’m breaking my usual Saturday routine. It’s only 9 a.m., but I’m not lying in my bed. I’m with my friend Gareth, and we’re walking up a mountain. The sun is shining on my back. It’s great! Gareth does this every week. Now I understand why.",
+  students: ["Сурагч 1", "Сурагч 2", "Сурагч 3"] }];
+const $ = id => document.getElementById(id);
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+const hasApi = /^https:\/\/script\.google\.com\//.test(API_URL);
+
+let classes = [], cls = null, T = buildTargets(""), student = "";
+let recording = false, stopping = false;
+let finalText = "", partial = "", baseText = "", lastCur = -1;
+let startedAt = 0, firstWordAt = 0, endedAt = 0, timer = null;
+let score = align(T, [], false);
+let rec = null, mediaRec = null, chunks = [], stream = null;
+let pending = null;                 // a result that has not reached the database yet
+let teacherPw = "", tResults = [], tSel = "", editId = null, delArmed = false;
+
+/* ---------- Helpers ---------- */
+let toastT = null;
+function toast(msg){ const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4500); }
+function setStatus(text, c){ const s = $("status"); s.textContent = text; s.className = "status" + (c ? " " + c : ""); }
+function fmtTime(sec){ return Math.floor(sec/60) + ":" + String(sec%60).padStart(2,"0"); }
+function fmtDate(iso){ const d = new Date(iso); if (isNaN(d)) return ""; const p = n => String(n).padStart(2,"0"); return d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()); }
+function elapsedSec(){ const from = firstWordAt || startedAt; return from ? Math.max(0, Math.round(((endedAt || Date.now()) - from) / 1000)) : 0; }
+function level(acc){ return acc >= 90 ? "good" : acc >= 70 ? "warn" : "bad"; }
+function remember(k, v){ try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e){ return null; } }
+
+async function api(req){
+  if (!hasApi) throw new Error("no-api");
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 25000);
+  try {
+    // Sent as plain text on purpose: Apps Script accepts it without a preflight request.
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(req), signal: ctl.signal });
+    const data = await res.json();
+    if (!data.ok){ const e = new Error(data.error || "error"); e.server = true; throw e; }
+    return data;
+  } finally { clearTimeout(to); }
+}
+
+/* ---------- Classes, students, passage ---------- */
+let spans = [];
+function fillClassSelects(){
+  [$("classSelect"), $("tClass")].forEach(sel => {
+    const keep = sel.value; sel.textContent = "";
+    classes.forEach(c => { const o = document.createElement("option"); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+    if (classes.some(c => c.id === keep)) sel.value = keep;
+  });
+}
+function setClass(id){
+  cls = classes.find(c => c.id === id) || classes[0] || null;
+  if (!cls) return;
+  $("classSelect").value = cls.id; remember("unshlaga-class", cls.id);
+  $("siteTitle").textContent = cls.name + " ангийн уншлагын танхим";
+  document.title = cls.name + " уншлагын танхим";
+  const sel = $("studentSelect"); sel.textContent = "";
+  const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Нэрээ сонгоно уу"; sel.appendChild(o0);
+  cls.students.forEach((n, i) => { const o = document.createElement("option"); o.value = n; o.textContent = (i+1) + ". " + n; sel.appendChild(o); });
+  student = "";
+  T = buildTargets(cls.text);
+  $("pTitle").textContent = cls.title || "";
+  const box = $("passage"); box.textContent = ""; spans = [];
+  T.words.forEach(w => {
+    const s = document.createElement("span");
+    s.className = "w"; s.textContent = w; s.tabIndex = 0; s.setAttribute("role","button");
+    const say = () => { if (!recording) speak(w.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9.]+$/g,"").replace(/[.]+$/,"") || w); };
+    s.addEventListener("click", say);
+    s.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); say(); } });
+    box.appendChild(s); box.appendChild(document.createTextNode(" ")); spans.push(s);
+  });
+  resetAttempt(); setStatus(rec ? "Бэлэн" : "Микрофон ажиллахгүй");
+}
+$("classSelect").addEventListener("change", e => {
+  if (recording){ toast("Уншиж байх үед анги солих боломжгүй."); e.target.value = cls ? cls.id : ""; return; }
+  setClass(e.target.value);
+});
+$("studentSelect").addEventListener("change", e => {
+  if (recording){ toast("Уншиж байх үед сурагч солих боломжгүй. Эхлээд «Дуусгах» дарна уу."); e.target.value = student; return; }
+  student = e.target.value; resetAttempt();
+  if (rec) setStatus(student ? "Сонгосон: " + student : "Бэлэн", student ? "sel" : "");
+});
+
+function paint(){
+  score.st.forEach((x, i) => {
+    spans[i].className = "w" + (x === "ok" ? " ok" : x === "skip" ? " skip" : x === "miss" ? " miss" : "") + (recording && i === score.cur ? " cur" : "");
+  });
+  if (recording && score.cur !== lastCur && score.cur >= 0){
+    lastCur = score.cur;
+    const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    try { spans[score.cur].scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" }); } catch (e){}
+  }
+  const total = T.total || 1, sec = elapsedSec();
+  $("sAcc").textContent = Math.round(score.ok / total * 100) + "%";
+  $("sWpm").textContent = sec > 0 ? Math.round(score.ok / sec * 60) : 0;
+  $("sOk").textContent = score.ok; $("sBad").textContent = score.bad;
+  $("sTotal").textContent = "нийт " + T.total + " үгээс";
+  const prog = Math.round((score.ok + score.bad) / total * 100);
+  $("sProg").textContent = prog + "%"; $("bar").style.width = prog + "%";
+  $("sTime").textContent = fmtTime(sec);
+}
+function realign(finished){
+  score = align(T, tokenizeSpoken(finalText + " " + partial), !!finished);
+  paint();
+  const live = $("live"); live.textContent = "";
+  if (!finalText.trim() && !partial.trim()){ live.textContent = recording ? "Сонсож байна. Уншиж эхлээрэй." : ""; return; }
+  live.appendChild(document.createTextNode(finalText.trim() + " "));
+  if (partial){ const p = document.createElement("span"); p.className = "part"; p.textContent = partial; live.appendChild(p); }
+  live.scrollTop = live.scrollHeight;
+}
+function resetAttempt(){
+  finalText = ""; partial = ""; baseText = ""; lastCur = -1; startedAt = firstWordAt = endedAt = 0;
+  score = align(T, [], false); paint();
+  $("live").textContent = student ? "«Уншиж эхлэх» товчийг дарна уу." : "Анги, нэрээ сонгоод «Уншиж эхлэх» товчийг дарна уу.";
+  $("playback").hidden = true; $("btnRetry").disabled = true;
+  if (!pending){ $("sendNote").hidden = true; $("btnResend").hidden = true; }
+}
+
+/* ---------- Listening ---------- */
+function speak(text){
+  if (recording){ toast("Унших үед сонсох боломжгүй."); return; }
+  try {
+    if (!("speechSynthesis" in window)) throw 0;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+  } catch (e){ toast("Энэ хөтөч дээр дуудлага сонсгох боломжгүй байна."); }
+}
+$("btnListen").addEventListener("click", () => { if (cls) speak(cls.text); });
+
+/* ---------- Speech recognition ---------- */
+function setupSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return false;
+  rec = new SR(); rec.continuous = true; rec.interimResults = true; rec.lang = "en-US";
+  rec.onresult = e => {
+    if (!recording) return;
+    let fin = "", interim = "";
+    for (let i = 0; i < e.results.length; i++){
+      const r = e.results[i], t = r[0].transcript;
+      if (!r.isFinal){ interim += t; continue; }
+      if (IS_ANDROID && r[0].confidence === 0) continue;   // Android Chrome repeats phrases as zero-confidence results
+      fin += " " + t;
+    }
+    finalText = baseText + fin; partial = interim;
+    if (!firstWordAt) firstWordAt = Date.now();
+    realign();
+    if (!interim && score.done && !stopping) stop();
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") abort("Микрофон ашиглах зөвшөөрөл олгогдоогүй байна. Хөтчийн хаягийн мөрөн дэх микрофоны тохиргоог зөвшөөрнө үү.");
+    else if (e.error === "audio-capture") abort("Микрофон олдсонгүй. Микрофоноо холбоод дахин оролдоно уу.");
+    else if (e.error === "network") abort("Яриа таних үйлчилгээнд холбогдож чадсангүй. Интернэт холболтоо шалгана уу.");
+  };
+  rec.onend = () => {
+    if (!recording) return;
+    baseText = finalText;
+    if (stopping) finish(); else { try { rec.start(); } catch (e){} }
+  };
+  return true;
+}
+function start(){
+  if (!cls || !rec || recording) return;
+  if (!student){ toast("Эхлээд нэрээ сонгоно уу."); $("studentSelect").focus(); return; }
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e){}
+  pending = null; resetAttempt();
+  recording = true; stopping = false; startedAt = Date.now(); document.body.classList.add("is-rec");
+  try { rec.start(); } catch (e){}
+  startAudioCapture();
+  timer = setInterval(paint, 1000);
+  $("btnStart").disabled = true; $("btnStop").disabled = false; $("btnRetry").disabled = true;
+  setStatus("Бичиж байна: " + student, "rec");
+  realign();
+}
+function stop(){
+  if (!recording || stopping) return;
+  stopping = true; endedAt = Date.now(); $("btnStop").disabled = true;
+  try { rec.stop(); } catch (e){}
+  setTimeout(finish, 1500);
+}
+function endCommon(){
+  recording = false; stopping = false; clearInterval(timer); timer = null; document.body.classList.remove("is-rec");
+  if (!endedAt) endedAt = Date.now();
+  try { if (mediaRec && mediaRec.state === "recording") mediaRec.stop(); } catch (e){}
+  $("btnStart").disabled = !rec; $("btnStop").disabled = true;
+}
+function abort(msg){
+  if (!recording) return;
+  recording = false; try { rec.abort(); } catch (e){}
+  endCommon(); resetAttempt(); setStatus("Бэлэн"); toast(msg);
+}
+function finish(){
+  if (!recording) return;
+  endCommon(); partial = ""; realign(true);
+  $("btnRetry").disabled = false;
+  if (score.ok === 0){ setStatus("Яриа танигдсангүй"); toast("Яриа танигдсангүй тул дүн хадгалаагүй. Микрофондоо ойртож дахин уншина уу."); return; }
+  const sec = Math.max(1, elapsedSec()), acc = Math.round(score.ok / T.total * 100);
+  pending = {
+    action: "submitResult", classId: cls.id, student,
+    accuracy: acc, wpm: Math.round(score.ok / sec * 60), correct: score.ok, wrong: score.bad, total: T.total, seconds: sec,
+    skipped: T.words.filter((w, i) => score.st[i] === "skip").join(" "), unread: score.st.filter(x => x === "miss").length,
+    heard: finalText.trim().slice(0, 2500)
+  };
+  setStatus("Дууссан: " + acc + "%", "done");
+  sendPending();
+}
+async function sendPending(){
+  if (!pending) return;
+  const note = $("sendNote"), again = $("btnResend");
+  note.hidden = false; again.hidden = true;
+  if (!hasApi){ note.className = "bad"; note.textContent = "Датабэйс холбогдоогүй тул энэ дүн хадгалагдаагүй."; pending = null; return; }
+  note.className = ""; note.textContent = "Дүнг илгээж байна.";
+  try { await api(pending); pending = null; note.className = "ok"; note.textContent = "Дүн багшид илгээгдлээ."; }
+  catch (e){
+    note.className = "bad";
+    note.textContent = e.server ? "Дүнг хадгалж чадсангүй: " + e.message : "Дүнг илгээж чадсангүй. Интернэтээ шалгаад дахин илгээнэ үү.";
+    again.hidden = false;
+  }
+}
+$("btnResend").addEventListener("click", sendPending);
+
+/* Own-voice playback on computers. Android cannot record and recognize at the same time. */
+const canCapture = !!(navigator.mediaDevices && window.MediaRecorder) && !IS_ANDROID;
+async function startAudioCapture(){
+  if (!canCapture) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!recording){ stream.getTracks().forEach(t => t.stop()); stream = null; return; }
+    chunks = []; mediaRec = new MediaRecorder(stream);
+    mediaRec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    mediaRec.onstop = () => {
+      const blob = new Blob(chunks, { type: mediaRec.mimeType || "audio/webm" });
+      if (blob.size){ $("player").src = URL.createObjectURL(blob); $("playback").hidden = false; }
+      if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+    };
+    mediaRec.start();
+  } catch (e){ stream = null; }
+}
+$("btnStart").addEventListener("click", start);
+$("btnStop").addEventListener("click", stop);
+$("btnRetry").addEventListener("click", start);
+
+/* ---------- Teacher: login ---------- */
+function showTeacher(on){
+  $("teacherView").hidden = !on; $("studentView").hidden = on;
+  $("btnTeacher").textContent = on ? "Гарах" : "Багш нэвтрэх";
+  if (on){ $("tClass").value = cls ? cls.id : ""; selectTab("results"); loadResults(); }
+}
+$("btnTeacher").addEventListener("click", () => {
+  if (recording){ toast("Эхлээд уншлагаа дуусгана уу."); return; }
+  if (!$("teacherView").hidden){ teacherPw = ""; showTeacher(false); if (cls) setClass(cls.id); return; }
+  if (!hasApi){ toast("Датабэйс холбогдоогүй байна. Эхлээд тохиргоог хийнэ үү."); return; }
+  $("loginMsg").textContent = ""; $("pw").value = ""; $("modal").hidden = false; $("pw").focus();
+});
+$("btnCancel").addEventListener("click", () => $("modal").hidden = true);
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const pw = $("pw").value; if (!pw) return;
+  $("btnLogin").disabled = true; $("loginMsg").textContent = "Шалгаж байна.";
+  try { await api({ action: "login", pw }); teacherPw = pw; $("modal").hidden = true; showTeacher(true); }
+  catch (err){ $("loginMsg").textContent = err.server ? "Нууц үг буруу байна." : "Холбогдож чадсангүй. Интернэтээ шалгана уу."; }
+  $("btnLogin").disabled = false;
+});
+function authLost(e){ if (e.server && e.message === "auth"){ teacherPw = ""; showTeacher(false); toast("Нууц үг хүчингүй болсон байна. Дахин нэвтэрнэ үү."); return true; } return false; }
+
+/* ---------- Teacher: results ---------- */
+function tClassObj(){ return classes.find(c => c.id === $("tClass").value) || null; }
+function selectTab(name){
+  const r = name === "results";
+  $("tabResults").setAttribute("aria-selected", r); $("tabEdit").setAttribute("aria-selected", !r);
+  $("panelResults").hidden = !r; $("panelEdit").hidden = r;
+  if (!r) fillForm(tClassObj());
+}
+$("tabResults").addEventListener("click", () => selectTab("results"));
+$("tabEdit").addEventListener("click", () => selectTab("edit"));
+$("tClass").addEventListener("change", () => { if ($("panelEdit").hidden) loadResults(); else fillForm(tClassObj()); });
+$("btnRefresh").addEventListener("click", loadResults);
+
+async function loadResults(){
+  const c = tClassObj(); if (!c) return;
+  $("tNote").textContent = "Оноог ачаалж байна."; tResults = []; tSel = ""; renderResults();
+  try {
+    const d = await api({ action: "getResults", pw: teacherPw, classId: c.id });
+    tResults = Array.isArray(d.results) ? d.results : [];
+    $("tNote").textContent = tResults.length ? "Сурагчийн мөр дээр дарж уншлага бүрийг дэлгэрэнгүй харна." : "Энэ ангид одоогоор оноо алга.";
+  } catch (e){ if (authLost(e)) return; $("tNote").textContent = "Оноог ачаалж чадсангүй. «Оноог шинэчлэх» дарж дахин оролдоно уу."; }
+  renderResults();
+}
+function attemptsOf(name){ return tResults.filter(r => r.student === name).sort((a, b) => String(a.at).localeCompare(String(b.at))); }
+function renderResults(){
+  const c = tClassObj(), body = $("tBody"); body.textContent = "";
+  if (!c) return;
+  const names = c.students.slice();
+  tResults.forEach(r => { if (names.indexOf(r.student) < 0) names.push(r.student); });   // renamed or removed students keep their rows
+  let read = 0, accSum = 0, wpmSum = 0;
+  names.forEach((n, i) => {
+    const at = attemptsOf(n), last = at[at.length - 1];
+    const tr = document.createElement("tr"); if (n === tSel) tr.className = "on";
+    const cell = (txt, c2) => { const td = document.createElement("td"); if (c2) td.className = c2; td.textContent = txt; tr.appendChild(td); return td; };
+    cell(i + 1); cell(n + (c.students.indexOf(n) < 0 ? " (жагсаалтад байхгүй)" : ""));
+    if (last){
+      read++; accSum += last.accuracy; wpmSum += last.wpm;
+      cell(at.length, "num");
+      const td = cell("", "num"); const p = document.createElement("span"); p.className = "pill " + level(last.accuracy); p.textContent = last.accuracy + "%"; td.appendChild(p);
+      cell(last.wpm, "num"); cell(Math.max.apply(null, at.map(r => r.accuracy)) + "%", "num"); cell(fmtDate(last.at));
+    } else { cell("0", "num"); const td = cell("", "num"); const p = document.createElement("span"); p.className = "pill"; p.textContent = "Уншаагүй"; td.appendChild(p); cell("", "num"); cell("", "num"); cell(""); }
+    tr.addEventListener("click", () => { tSel = tSel === n ? "" : n; renderResults(); });
+    body.appendChild(tr);
+  });
+  $("tRead").textContent = read; $("tReadOf").textContent = c.students.length + " сурагчаас";
+  $("tAcc").textContent = (read ? Math.round(accSum / read) : 0) + "%";
+  $("tWpm").textContent = read ? Math.round(wpmSum / read) : 0;
+  const det = $("detail"); det.textContent = ""; det.hidden = !tSel;
+  if (!tSel) return;
+  const h = document.createElement("h3"); h.textContent = tSel + ": уншлага бүр"; det.appendChild(h);
+  const at = attemptsOf(tSel);
+  if (!at.length){ const p = document.createElement("div"); p.textContent = "Одоогоор уншаагүй байна."; det.appendChild(p); }
+  at.slice().reverse().forEach(r => {
+    const d = document.createElement("div"); d.className = "att";
+    const a = document.createElement("div"); a.textContent = fmtDate(r.at) + "   " + r.accuracy + "%, " + r.wpm + " үг/мин, " + r.seconds + " сек. Зөв " + r.correct + ", алдсан " + r.wrong + " (үүнээс хүрч уншаагүй " + r.unread + ").";
+    const b = document.createElement("span"); b.textContent = "Алгассан эсвэл буруу уншсан: " + (r.skipped || "байхгүй");
+    d.append(a, b); det.appendChild(d);
+  });
+}
+$("btnCsv").addEventListener("click", () => {
+  const c = tClassObj(); if (!c || !tResults.length){ toast("Татах оноо алга."); return; }
+  const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const rowsOut = [["Анги","Сурагч","Огноо","Нарийвчлал (%)","Хурд (үг/мин)","Зөв үг","Алдсан үг","Нийт үг","Хугацаа (сек)","Алгассан үгс","Уншаагүй үгийн тоо"]];
+  tResults.slice().sort((a, b) => a.student.localeCompare(b.student) || String(a.at).localeCompare(String(b.at)))
+    .forEach(r => rowsOut.push([c.name, r.student, fmtDate(r.at), r.accuracy, r.wpm, r.correct, r.wrong, r.total, r.seconds, r.skipped, r.unread]));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + rowsOut.map(r => r.map(q).join(",")).join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }));
+  a.download = "unshlaga_" + fmtDate(new Date().toISOString()).slice(0, 10) + ".csv";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+
+/* ---------- Teacher: edit class, students, passage ---------- */
+function fillForm(c){
+  editId = c ? c.id : null;
+  $("fName").value = c ? c.name : ""; $("fTitle").value = c ? c.title : "";
+  $("fText").value = c ? c.text : ""; $("fStudents").value = c ? c.students.join("\n") : "";
+  $("btnDelete").hidden = !c; countWords();
+}
+function countWords(){ $("fCount").textContent = buildTargets($("fText").value).total + " үг"; }
+$("fText").addEventListener("input", countWords);
+$("btnNew").addEventListener("click", () => { fillForm(null); $("fName").focus(); toast("Шинэ ангийн мэдээллийг бөглөөд «Хадгалах» дарна уу."); });
+$("btnSave").addEventListener("click", async () => {
+  const c = { id: editId, name: $("fName").value.trim(), title: $("fTitle").value.trim(), text: $("fText").value.trim(),
+    students: $("fStudents").value.split("\n").map(s => s.trim()).filter(Boolean) };
+  if (!c.name){ toast("Ангийн нэрээ бичнэ үү."); $("fName").focus(); return; }
+  if (!buildTargets(c.text).total){ toast("Унших эхээ бичнэ үү."); $("fText").focus(); return; }
+  if (!c.students.length){ toast("Сурагчдын нэрсийг бичнэ үү."); $("fStudents").focus(); return; }
+  if (new Set(c.students).size !== c.students.length){ toast("Ижил нэртэй сурагч байна. Нэрсийг ялгаатай болгоно уу (жишээ нь: Гэгээлэн Б, Гэгээлэн Э)."); return; }
+  $("btnSave").disabled = true;
+  try {
+    const d = await api({ action: "saveClass", pw: teacherPw, cls: c });
+    classes = d.classes; fillClassSelects(); $("tClass").value = d.id; fillForm(tClassObj());
+    if (cls && !classes.some(x => x.id === cls.id)) cls = null;
+    cls = classes.find(x => x.id === (cls ? cls.id : d.id)) || classes[0];
+    toast("Хадгалагдлаа.");
+  } catch (e){ if (!authLost(e)) toast(e.server ? e.message : "Хадгалж чадсангүй. Интернэтээ шалгаад дахин оролдоно уу."); }
+  $("btnSave").disabled = false;
+});
+$("btnDelete").addEventListener("click", async () => {
+  const b = $("btnDelete"); if (!editId) return;
+  if (classes.length < 2){ toast("Сүүлчийн ангийг устгах боломжгүй. Оронд нь нэр, эхийг нь засна уу."); return; }
+  if (!delArmed){ delArmed = true; b.textContent = "Итгэлтэй юу? Дахин дарна уу"; setTimeout(() => { delArmed = false; b.textContent = "Энэ ангийг устгах"; }, 4000); return; }
+  delArmed = false; b.textContent = "Энэ ангийг устгах"; b.disabled = true;
+  try {
+    const d = await api({ action: "deleteClass", pw: teacherPw, classId: editId });
+    classes = d.classes; fillClassSelects(); cls = classes.find(x => cls && x.id === cls.id) || classes[0]; fillForm(tClassObj());
+    toast("Анги устгагдлаа. Оноо нь хүснэгтэд хэвээр үлдэнэ.");
+  } catch (e){ if (!authLost(e)) toast("Устгаж чадсангүй. Дахин оролдоно уу."); }
+  b.disabled = false;
+});
+
+/* ---------- Start up ---------- */
+function showBanner(text, retry){
+  const b = $("banner"); b.textContent = text; b.hidden = false;
+  if (retry){ const btn = document.createElement("button"); btn.className = "btn small"; btn.type = "button"; btn.textContent = "Дахин оролдох"; btn.addEventListener("click", boot); b.appendChild(document.createElement("br")); b.appendChild(btn); }
+}
+function useClasses(list){
+  classes = list; fillClassSelects();
+  setClass(remember("unshlaga-class") || "");
+  $("btnStart").disabled = !rec;
+  if (!rec) $("live").textContent = "Энэ хөтөч яриа таних боломжгүй. Google Chrome эсвэл Microsoft Edge хөтчөөр нээнэ үү.";
+}
+async function boot(){
+  $("banner").hidden = true;
+  if (!hasApi){ useClasses(DEMO); showBanner("Датабэйс холбогдоогүй байна. Одоогоор жишээ ангитай ажиллаж байгаа бөгөөд оноо хадгалагдахгүй."); return; }
+  setStatus("Ачаалж байна");
+  try {
+    const d = await api({ action: "getClasses" });
+    if (!Array.isArray(d.classes) || !d.classes.length) throw new Error("empty");
+    useClasses(d.classes);
+  } catch (e){
+    setStatus("Холбогдсонгүй");
+    showBanner("Анги, унших эхийг ачаалж чадсангүй. Интернэт холболтоо шалгана уу.", true);
+  }
+}
+setupSpeech();
+boot();
+</script>
+</body>
+</html>
